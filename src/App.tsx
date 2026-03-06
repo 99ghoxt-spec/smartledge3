@@ -39,7 +39,8 @@ import {
   X,
   Loader2,
   Mic,
-  Lock
+  Lock,
+  Clipboard
 } from 'lucide-react';
 import { 
   BarChart, 
@@ -170,24 +171,12 @@ export default function App() {
   };
 
   // Proactive Return Detection (Automatic "Jump")
+  // Removed automatic clipboard reading to prevent annoying "Paste" prompts on mobile.
+  // Users can now use the manual paste button in the entry modal.
   useEffect(() => {
-    const handleVisibilityChange = async () => {
+    const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible' && user) {
-        try {
-          const text = await navigator.clipboard.readText();
-          if (text && (text.includes('支付') || text.includes('消费') || text.includes('收入') || text.includes('¥') || text.includes('元'))) {
-            // Check if this is a new bill (not the last one we processed)
-            const lastProcessed = localStorage.getItem('last_processed_bill');
-            if (text !== lastProcessed) {
-              setIsAddModalOpen(true);
-              // We'll let the AddTransactionModal's own useEffect handle the initial classification
-              // or we can pass it via a temporary state. For simplicity, we'll store it in localStorage
-              localStorage.setItem('pending_bill', text);
-            }
-          }
-        } catch (err) {
-          console.log('Clipboard auto-check skipped');
-        }
+        // We could check for other pending states here if needed
       }
     };
 
@@ -230,7 +219,7 @@ export default function App() {
 
   return (
     <ErrorBoundary>
-      <div className="min-h-screen bg-slate-50 pb-24">
+      <div className="min-h-screen bg-slate-50 pb-24 font-['PingFang_SC','Hiragino_Sans_GB','Microsoft_YaHei','ui-sans-serif',system-ui]">
         {/* Header */}
         <header className="bg-white border-b border-slate-200 px-6 py-4 sticky top-0 z-10">
           <div className="max-w-4xl mx-auto flex items-center justify-between">
@@ -331,12 +320,48 @@ const Dashboard: React.FC<{ transactions: Transaction[] }> = ({ transactions }) 
       }, {});
     
     const pieData = Object.entries(categoryData).map(([name, value]) => ({ name, value }));
-    const barData = Object.entries(categoryData).map(([name, value]) => ({ name, value }));
     
-    return { income, expense, balance: income - expense, pieData, barData };
+    // Calculate 6-month history
+    const historyData = [];
+    for (let i = 5; i >= 0; i--) {
+      const d = new Date();
+      d.setMonth(d.getMonth() - i);
+      const monthStr = format(d, 'yyyy-MM');
+      const monthLabel = format(d, 'M月');
+      
+      const mExpense = transactions
+        .filter(t => t.type === 'expense' && format(t.date.toDate(), 'yyyy-MM') === monthStr)
+        .reduce((sum, t) => sum + t.amount, 0);
+      
+      historyData.push({ name: monthLabel, value: mExpense });
+    }
+    
+    return { income, expense, balance: income - expense, pieData, historyData };
   }, [transactions]);
 
   const COLORS = ['#6366f1', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4'];
+
+  // Custom label for Pie Chart with lines
+  const renderCustomizedLabel = (props: any) => {
+    const { cx, cy, midAngle, innerRadius, outerRadius, value, name } = props;
+    const RADIAN = Math.PI / 180;
+    const radius = outerRadius + 30;
+    const x = cx + radius * Math.cos(-midAngle * RADIAN);
+    const y = cy + radius * Math.sin(-midAngle * RADIAN);
+
+    return (
+      <text 
+        x={x} 
+        y={y} 
+        fill="#64748b" 
+        textAnchor={x > cx ? 'start' : 'end'} 
+        dominantBaseline="central"
+        className="text-[10px] font-bold"
+      >
+        {`${name} (¥${value})`}
+      </text>
+    );
+  };
 
   return (
     <motion.div 
@@ -374,7 +399,7 @@ const Dashboard: React.FC<{ transactions: Transaction[] }> = ({ transactions }) 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100">
           <h3 className="text-lg font-bold text-slate-900 mb-6">支出分类</h3>
-          <div className="h-64">
+          <div className="h-80">
             {stats.pieData.length > 0 ? (
               <ResponsiveContainer width="100%" height="100%">
                 <RePieChart>
@@ -382,10 +407,12 @@ const Dashboard: React.FC<{ transactions: Transaction[] }> = ({ transactions }) 
                     data={stats.pieData}
                     cx="50%"
                     cy="50%"
-                    innerRadius={60}
-                    outerRadius={80}
+                    innerRadius={50}
+                    outerRadius={70}
                     paddingAngle={5}
                     dataKey="value"
+                    label={renderCustomizedLabel}
+                    labelLine={{ stroke: '#cbd5e1', strokeWidth: 1 }}
                   >
                     {stats.pieData.map((entry, index) => (
                       <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
@@ -403,16 +430,34 @@ const Dashboard: React.FC<{ transactions: Transaction[] }> = ({ transactions }) 
         </div>
 
         <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100">
-          <h3 className="text-lg font-bold text-slate-900 mb-6">分类支出</h3>
+          <h3 className="text-lg font-bold text-slate-900 mb-6">支出分布</h3>
           <div className="h-64">
-            {stats.barData.length > 0 ? (
+            {stats.pieData.length > 0 ? (
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={stats.barData} layout="vertical">
+                <BarChart 
+                  data={[...stats.pieData].sort((a, b) => (b.value as number) - (a.value as number))}
+                  layout="vertical"
+                  margin={{ left: 20, right: 20 }}
+                >
                   <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f1f5f9" />
-                  <XAxis type="number" axisLine={false} tickLine={false} />
-                  <YAxis dataKey="name" type="category" axisLine={false} tickLine={false} width={80} tick={{ fontSize: 12 }} />
-                  <Tooltip cursor={{ fill: 'transparent' }} />
-                  <Bar dataKey="value" radius={[0, 8, 8, 0]} fill="#ef4444" />
+                  <XAxis type="number" hide />
+                  <YAxis 
+                    dataKey="name" 
+                    type="category" 
+                    axisLine={false} 
+                    tickLine={false} 
+                    width={80}
+                    tick={{ fontSize: 12, fill: '#64748b' }}
+                  />
+                  <Tooltip 
+                    cursor={{ fill: '#f8fafc' }}
+                    contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.05)' }}
+                  />
+                  <Bar dataKey="value" radius={[0, 8, 8, 0]} barSize={20}>
+                    {[...stats.pieData].sort((a, b) => (b.value as number) - (a.value as number)).map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                    ))}
+                  </Bar>
                 </BarChart>
               </ResponsiveContainer>
             ) : (
@@ -421,6 +466,36 @@ const Dashboard: React.FC<{ transactions: Transaction[] }> = ({ transactions }) 
               </div>
             )}
           </div>
+        </div>
+      </div>
+
+      {/* Monthly History Summary */}
+      <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100">
+        <div className="flex items-center justify-between mb-6">
+          <h3 className="text-lg font-bold text-slate-900">每月支出小结</h3>
+          <div className="flex items-center gap-2 text-xs text-slate-400">
+            <TrendingDown className="w-3 h-3" />
+            <span>近6个月趋势</span>
+          </div>
+        </div>
+        <div className="h-48">
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={stats.historyData}>
+              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+              <XAxis 
+                dataKey="name" 
+                axisLine={false} 
+                tickLine={false} 
+                tick={{ fontSize: 10, fill: '#94a3b8' }}
+              />
+              <YAxis hide />
+              <Tooltip 
+                cursor={{ fill: '#f8fafc' }}
+                contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.05)' }}
+              />
+              <Bar dataKey="value" fill="#6366f1" radius={[6, 6, 0, 0]} barSize={30} />
+            </BarChart>
+          </ResponsiveContainer>
         </div>
       </div>
 
@@ -499,6 +574,12 @@ const TransactionListView: React.FC<{ transactions: Transaction[] }> = ({ transa
     );
   };
 
+  const monthlyTotals = useMemo(() => {
+    const income = filteredTransactions.filter(t => t.type === 'income').reduce((sum, t) => sum + t.amount, 0);
+    const expense = filteredTransactions.filter(t => t.type === 'expense').reduce((sum, t) => sum + t.amount, 0);
+    return { income, expense, balance: income - expense };
+  }, [filteredTransactions]);
+
   return (
     <motion.div 
       initial={{ opacity: 0, x: 20 }}
@@ -539,6 +620,29 @@ const TransactionListView: React.FC<{ transactions: Transaction[] }> = ({ transa
           >
             按分类
           </button>
+        </div>
+      </div>
+
+      {/* Monthly Summary Card */}
+      <div className="bg-indigo-600 rounded-[32px] p-6 text-white shadow-lg shadow-indigo-100">
+        <div className="flex justify-between items-start mb-6">
+          <div>
+            <p className="text-indigo-100 text-xs font-medium mb-1 uppercase tracking-wider">该月总支出</p>
+            <h2 className="text-3xl font-black">¥{monthlyTotals.expense.toLocaleString('zh-CN', { minimumFractionDigits: 2 })}</h2>
+          </div>
+          <div className="bg-white/20 p-3 rounded-2xl backdrop-blur-md">
+            <Wallet className="w-6 h-6 text-white" />
+          </div>
+        </div>
+        <div className="grid grid-cols-2 gap-4 pt-4 border-t border-white/10">
+          <div>
+            <p className="text-indigo-100 text-[10px] uppercase tracking-wider mb-1">总收入</p>
+            <p className="font-bold text-sm">¥{monthlyTotals.income.toLocaleString('zh-CN', { minimumFractionDigits: 2 })}</p>
+          </div>
+          <div className="text-right">
+            <p className="text-indigo-100 text-[10px] uppercase tracking-wider mb-1">结余</p>
+            <p className="font-bold text-sm">¥{monthlyTotals.balance.toLocaleString('zh-CN', { minimumFractionDigits: 2 })}</p>
+          </div>
         </div>
       </div>
 
@@ -873,37 +977,36 @@ function AddTransactionModal({ userId, onClose }: { userId: string, onClose: () 
     }
   };
 
-  // Clipboard Auto-Detection
+  // Clipboard Auto-Detection (Pending bill only)
   useEffect(() => {
-    const checkClipboard = async () => {
-      // Check if there's a pending bill from visibility change
+    const checkPendingBill = () => {
+      // Check if there's a pending bill from visibility change (if we still used that)
       const pendingBill = localStorage.getItem('pending_bill');
       if (pendingBill) {
         localStorage.removeItem('pending_bill');
         localStorage.setItem('last_processed_bill', pendingBill);
         handleSmartInput(pendingBill);
-        return;
-      }
-
-      try {
-        const text = await navigator.clipboard.readText();
-        if (text && (text.includes('支付') || text.includes('消费') || text.includes('收入') || text.includes('¥') || text.includes('元'))) {
-          const lastProcessed = localStorage.getItem('last_processed_bill');
-          if (text !== lastProcessed) {
-            // Since we can't easily show a custom confirm in useEffect without state management
-            // We'll just set it to the input field and show a message
-            setInput(text);
-            setFeedback({ type: 'info', text: '检测到剪贴板账单，已为您填入输入框。' });
-            localStorage.setItem('last_processed_bill', text);
-          }
-        }
-      } catch (err) {
-        console.log('Clipboard access skipped or denied');
       }
     };
 
-    checkClipboard();
+    checkPendingBill();
   }, []);
+
+  const handlePaste = async () => {
+    try {
+      const text = await navigator.clipboard.readText();
+      if (text) {
+        setInput(text);
+        setFeedback({ type: 'success', text: '已从剪贴板粘贴。' });
+        // Optionally auto-trigger recognition
+        if (text.includes('¥') || text.includes('元') || text.length > 5) {
+          handleSmartInput(text);
+        }
+      }
+    } catch (err) {
+      setFeedback({ type: 'error', text: '无法读取剪贴板，请手动粘贴。' });
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -990,6 +1093,14 @@ function AddTransactionModal({ userId, onClose }: { userId: string, onClose: () 
                 className="w-full p-4 bg-slate-50 border-none rounded-2xl text-sm focus:ring-2 focus:ring-indigo-500 min-h-[100px] resize-none pr-24"
               />
               <div className="absolute bottom-3 right-3 flex gap-2">
+                <button
+                  type="button"
+                  onClick={handlePaste}
+                  className="p-2 bg-white text-slate-400 hover:text-indigo-500 rounded-xl shadow-sm border border-slate-100 transition-all"
+                  title="从剪贴板粘贴"
+                >
+                  <Clipboard className="w-4 h-4" />
+                </button>
                 <button
                   type="button"
                   onClick={toggleListening}
