@@ -1,11 +1,45 @@
 import { initializeApp } from 'firebase/app';
 import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged, User as FirebaseUser } from 'firebase/auth';
-import { getFirestore, collection, doc, getDoc, setDoc, addDoc, updateDoc, deleteDoc, query, where, orderBy, onSnapshot, getDocFromServer, Timestamp } from 'firebase/firestore';
+import { 
+  getFirestore, 
+  collection, 
+  doc, 
+  getDoc, 
+  setDoc, 
+  addDoc, 
+  updateDoc, 
+  deleteDoc, 
+  query, 
+  where, 
+  orderBy, 
+  onSnapshot, 
+  getDocFromServer, 
+  Timestamp,
+  enableMultiTabIndexedDbPersistence
+} from 'firebase/firestore';
 import firebaseConfig from '../firebase-applet-config.json';
 
 // Initialize Firebase SDK
-const app = initializeApp(firebaseConfig);
-export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId);
+const config = { ...firebaseConfig };
+// Use .cn domain for Auth to improve accessibility in China
+if (config.authDomain && config.authDomain.endsWith('.firebaseapp.com')) {
+  config.authDomain = config.authDomain.replace('.firebaseapp.com', '.firebaseapp.cn');
+}
+
+const app = initializeApp(config);
+export const db = getFirestore(app, config.firestoreDatabaseId);
+
+// Enable Offline Persistence
+enableMultiTabIndexedDbPersistence(db).catch((err) => {
+  if (err.code === 'failed-precondition') {
+    // Multiple tabs open, persistence can only be enabled in one tab at a a time.
+    console.warn('Firestore persistence failed: Multiple tabs open');
+  } else if (err.code === 'unimplemented') {
+    // The current browser does not support all of the features required to enable persistence
+    console.warn('Firestore persistence failed: Browser not supported');
+  }
+});
+
 export const auth = getAuth(app);
 export const googleProvider = new GoogleAuthProvider();
 

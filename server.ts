@@ -31,20 +31,21 @@ async function startServer() {
     console.log("Received classification request:", req.body);
     const { input, secret } = req.body;
     
-    // 准备有效的“钥匙”：环境变量、用户提供、原始模板
-    const keys = [
-      process.env.GEMINI_API_KEY || process.env.API_KEY,
-      "AIzaSyAmUKHhmXkzZyingULB7ilvTsjavMRg9cE", 
-      "AIzaSyCGvihtHtT14G1JnC21_dy60FEG7drCC60"
-    ].filter(Boolean).map(k => k.trim()).filter(k => !k.includes("_X_z_")) as string[];
-
     const APP_SECRET = "cxmyydsjjz";
+    const isUserProvidingKey = typeof secret === 'string' && secret.startsWith("AIzaSy");
+    
+    // 准备有效的“钥匙”：优先使用用户提供的 Key，其次是环境变量
+    const keys = [
+      isUserProvidingKey ? secret : null,
+      process.env.GEMINI_API_KEY || process.env.API_KEY,
+    ].filter(Boolean).map(k => k.trim()) as string[];
 
     if (!input) {
       return res.status(400).json({ error: "INPUT_EMPTY" });
     }
 
-    if (secret !== APP_SECRET) {
+    // 如果既不是正确的暗号，也不是有效的 API Key，则拒绝访问
+    if (!isUserProvidingKey && secret !== APP_SECRET) {
       console.warn("Invalid secret attempt:", secret);
       return res.status(403).json({ error: "INVALID_SECRET" });
     }

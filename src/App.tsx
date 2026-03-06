@@ -40,7 +40,10 @@ import {
   Loader2,
   Mic,
   Lock,
-  Clipboard
+  Clipboard,
+  Wifi,
+  WifiOff,
+  Sparkles
 } from 'lucide-react';
 import { 
   BarChart, 
@@ -184,6 +187,19 @@ export default function App() {
     return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
   }, [user]);
 
+  const [isOnline, setIsOnline] = useState(navigator.onLine);
+
+  useEffect(() => {
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-50">
@@ -225,15 +241,31 @@ export default function App() {
           <div className="max-w-4xl mx-auto flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center shadow-md shadow-indigo-100">
-                <Wallet className="w-6 h-6 text-white" />
+                <BrainCircuit className="w-6 h-6 text-white" />
               </div>
-              <h1 className="text-xl font-bold text-slate-900 hidden sm:block">SmartLedger</h1>
+              <div>
+                <h1 className="text-xl font-bold text-slate-900 tracking-tight">智能记账</h1>
+                <div className="flex items-center gap-2">
+                  <div className={cn(
+                    "w-1.5 h-1.5 rounded-full",
+                    isOnline ? "bg-emerald-500" : "bg-amber-500"
+                  )} />
+                  <span className="text-[10px] text-slate-400 font-medium uppercase tracking-wider">
+                    {isOnline ? "已连接" : "离线模式"}
+                  </span>
+                </div>
+              </div>
             </div>
             <div className="flex items-center gap-4">
               <div className="text-right hidden sm:block">
                 <p className="text-sm font-medium text-slate-900">{user.displayName}</p>
                 <p className="text-xs text-slate-500">{user.email}</p>
               </div>
+              {!isOnline && (
+                <div className="p-2 bg-amber-50 text-amber-600 rounded-lg" title="离线模式：数据将稍后同步">
+                  <WifiOff className="w-4 h-4" />
+                </div>
+              )}
               <button 
                 onClick={handleLogout}
                 className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all"
@@ -339,13 +371,13 @@ const Dashboard: React.FC<{ transactions: Transaction[] }> = ({ transactions }) 
     return { income, expense, balance: income - expense, pieData, historyData };
   }, [transactions]);
 
-  const COLORS = ['#6366f1', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4'];
+  const COLORS = ['#6366f1', '#8b5cf6', '#ec4899', '#f43f5e', '#f59e0b', '#10b981', '#06b6d4'];
 
   // Custom label for Pie Chart with lines
   const renderCustomizedLabel = (props: any) => {
     const { cx, cy, midAngle, innerRadius, outerRadius, value, name } = props;
     const RADIAN = Math.PI / 180;
-    const radius = outerRadius + 30;
+    const radius = outerRadius + 20;
     const x = cx + radius * Math.cos(-midAngle * RADIAN);
     const y = cy + radius * Math.sin(-midAngle * RADIAN);
 
@@ -353,53 +385,47 @@ const Dashboard: React.FC<{ transactions: Transaction[] }> = ({ transactions }) 
       <text 
         x={x} 
         y={y} 
-        fill="#64748b" 
+        fill="#71717a" 
         textAnchor={x > cx ? 'start' : 'end'} 
         dominantBaseline="central"
-        className="text-[10px] font-bold"
+        className="text-[10px] font-medium tracking-tight"
       >
-        {`${name} (¥${value})`}
+        {`${name}`}
       </text>
     );
   };
 
   return (
     <motion.div 
-      initial={{ opacity: 0, x: -20 }}
-      animate={{ opacity: 1, x: 0 }}
-      exit={{ opacity: 0, x: 20 }}
-      className="space-y-6"
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -10 }}
+      className="space-y-8"
     >
-      {/* Summary Cards */}
+      {/* Summary Section */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100">
-          <div className="flex items-center gap-2 text-slate-500 mb-2">
-            <Wallet className="w-4 h-4" />
-            <span className="text-sm font-medium">本月结余</span>
-          </div>
+          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">本月结余</p>
           <p className="text-2xl font-bold text-slate-900">¥{stats.balance.toLocaleString()}</p>
         </div>
-        <div className="bg-emerald-50 p-6 rounded-3xl border border-emerald-100">
-          <div className="flex items-center gap-2 text-emerald-600 mb-2">
-            <TrendingUp className="w-4 h-4" />
-            <span className="text-sm font-medium">本月收入</span>
-          </div>
-          <p className="text-2xl font-bold text-emerald-700">¥{stats.income.toLocaleString()}</p>
+        <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100">
+          <p className="text-[10px] font-bold text-emerald-500 uppercase tracking-wider mb-1">本月收入</p>
+          <p className="text-2xl font-bold text-slate-900">¥{stats.income.toLocaleString()}</p>
         </div>
-        <div className="bg-rose-50 p-6 rounded-3xl border border-rose-100">
-          <div className="flex items-center gap-2 text-rose-600 mb-2">
-            <TrendingDown className="w-4 h-4" />
-            <span className="text-sm font-medium">本月支出</span>
-          </div>
-          <p className="text-2xl font-bold text-rose-700">¥{stats.expense.toLocaleString()}</p>
+        <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100">
+          <p className="text-[10px] font-bold text-rose-500 uppercase tracking-wider mb-1">本月支出</p>
+          <p className="text-2xl font-bold text-slate-900">¥{stats.expense.toLocaleString()}</p>
         </div>
       </div>
 
-      {/* Charts */}
+      {/* Charts Section */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100">
-          <h3 className="text-lg font-bold text-slate-900 mb-6">支出分类</h3>
-          <div className="h-80">
+          <div className="flex items-center justify-between mb-6">
+            <h3 className="text-sm font-bold text-slate-900">支出分类</h3>
+            <PieChart className="w-4 h-4 text-slate-300" />
+          </div>
+          <div className="h-72">
             {stats.pieData.length > 0 ? (
               <ResponsiveContainer width="100%" height="100%">
                 <RePieChart>
@@ -407,110 +433,75 @@ const Dashboard: React.FC<{ transactions: Transaction[] }> = ({ transactions }) 
                     data={stats.pieData}
                     cx="50%"
                     cy="50%"
-                    innerRadius={50}
-                    outerRadius={70}
-                    paddingAngle={5}
+                    innerRadius={60}
+                    outerRadius={85}
+                    paddingAngle={4}
                     dataKey="value"
                     label={renderCustomizedLabel}
-                    labelLine={{ stroke: '#cbd5e1', strokeWidth: 1 }}
+                    labelLine={false}
+                    stroke="none"
                   >
                     {stats.pieData.map((entry, index) => (
                       <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                     ))}
                   </Pie>
-                  <Tooltip />
+                  <Tooltip 
+                    contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 25px rgba(0,0,0,0.05)', fontSize: '12px' }}
+                  />
                 </RePieChart>
               </ResponsiveContainer>
             ) : (
-              <div className="h-full flex items-center justify-center text-slate-400">
-                暂无支出数据
+              <div className="h-full flex flex-col items-center justify-center text-slate-300 gap-2">
+                <PieChart className="w-8 h-8 opacity-20" />
+                <span className="text-xs">暂无支出数据</span>
               </div>
             )}
           </div>
         </div>
 
         <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100">
-          <h3 className="text-lg font-bold text-slate-900 mb-6">支出分布</h3>
-          <div className="h-64">
-            {stats.pieData.length > 0 ? (
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart 
-                  data={[...stats.pieData].sort((a, b) => (b.value as number) - (a.value as number))}
-                  layout="vertical"
-                  margin={{ left: 20, right: 20 }}
-                >
-                  <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f1f5f9" />
-                  <XAxis type="number" hide />
-                  <YAxis 
-                    dataKey="name" 
-                    type="category" 
-                    axisLine={false} 
-                    tickLine={false} 
-                    width={80}
-                    tick={{ fontSize: 12, fill: '#64748b' }}
-                  />
-                  <Tooltip 
-                    cursor={{ fill: '#f8fafc' }}
-                    contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.05)' }}
-                  />
-                  <Bar dataKey="value" radius={[0, 8, 8, 0]} barSize={20}>
-                    {[...stats.pieData].sort((a, b) => (b.value as number) - (a.value as number)).map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                    ))}
-                  </Bar>
-                </BarChart>
-              </ResponsiveContainer>
-            ) : (
-              <div className="h-full flex items-center justify-center text-slate-400">
-                暂无支出数据
-              </div>
-            )}
+          <div className="flex items-center justify-between mb-6">
+            <h3 className="text-sm font-bold text-slate-900">每月趋势</h3>
+            <TrendingUp className="w-4 h-4 text-slate-300" />
           </div>
-        </div>
-      </div>
-
-      {/* Monthly History Summary */}
-      <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100">
-        <div className="flex items-center justify-between mb-6">
-          <h3 className="text-lg font-bold text-slate-900">每月支出小结</h3>
-          <div className="flex items-center gap-2 text-xs text-slate-400">
-            <TrendingDown className="w-3 h-3" />
-            <span>近6个月趋势</span>
+          <div className="h-72">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={stats.historyData}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                <XAxis 
+                  dataKey="name" 
+                  axisLine={false} 
+                  tickLine={false} 
+                  tick={{ fontSize: 10, fill: '#94a3b8' }}
+                />
+                <YAxis hide />
+                <Tooltip 
+                  cursor={{ fill: '#f8fafc' }}
+                  contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.05)' }}
+                />
+                <Bar dataKey="value" fill="#6366f1" radius={[4, 4, 0, 0]} barSize={20} />
+              </BarChart>
+            </ResponsiveContainer>
           </div>
-        </div>
-        <div className="h-48">
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={stats.historyData}>
-              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-              <XAxis 
-                dataKey="name" 
-                axisLine={false} 
-                tickLine={false} 
-                tick={{ fontSize: 10, fill: '#94a3b8' }}
-              />
-              <YAxis hide />
-              <Tooltip 
-                cursor={{ fill: '#f8fafc' }}
-                contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.05)' }}
-              />
-              <Bar dataKey="value" fill="#6366f1" radius={[6, 6, 0, 0]} barSize={30} />
-            </BarChart>
-          </ResponsiveContainer>
         </div>
       </div>
 
       {/* Recent Activity */}
       <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100">
         <div className="flex items-center justify-between mb-6">
-          <h3 className="text-lg font-bold text-slate-900">最近记录</h3>
-          <ChevronRight className="w-5 h-5 text-slate-400" />
+          <h3 className="text-sm font-bold text-slate-900">最近记录</h3>
+          <button className="text-xs font-bold text-indigo-600 hover:text-indigo-700">
+            查看全部
+          </button>
         </div>
-        <div className="space-y-4">
+        <div className="divide-y divide-slate-50">
           {transactions.slice(0, 5).map(tx => (
             <TransactionItem key={tx.id} transaction={tx} />
           ))}
           {transactions.length === 0 && (
-            <p className="text-center text-slate-400 py-8">还没有记录，点击下方 + 开始记账吧</p>
+            <div className="text-center py-12">
+              <p className="text-sm text-slate-400">还没有记录，点击下方 + 开始记账吧</p>
+            </div>
           )}
         </div>
       </div>
@@ -624,24 +615,27 @@ const TransactionListView: React.FC<{ transactions: Transaction[] }> = ({ transa
       </div>
 
       {/* Monthly Summary Card */}
-      <div className="bg-indigo-600 rounded-[32px] p-6 text-white shadow-lg shadow-indigo-100">
-        <div className="flex justify-between items-start mb-6">
-          <div>
-            <p className="text-indigo-100 text-xs font-medium mb-1 uppercase tracking-wider">该月总支出</p>
-            <h2 className="text-3xl font-black">¥{monthlyTotals.expense.toLocaleString('zh-CN', { minimumFractionDigits: 2 })}</h2>
+      <div className="bg-indigo-600 rounded-3xl p-6 text-white shadow-xl shadow-indigo-100 relative overflow-hidden">
+        <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16 blur-2xl" />
+        <div className="relative z-10">
+          <div className="flex justify-between items-start mb-6">
+            <div>
+              <p className="text-indigo-100 text-xs font-medium mb-1">该月总支出</p>
+              <h2 className="text-3xl font-bold">¥{monthlyTotals.expense.toLocaleString()}</h2>
+            </div>
+            <div className="bg-white/20 p-3 rounded-xl backdrop-blur-sm">
+              <Wallet className="w-6 h-6 text-white" />
+            </div>
           </div>
-          <div className="bg-white/20 p-3 rounded-2xl backdrop-blur-md">
-            <Wallet className="w-6 h-6 text-white" />
-          </div>
-        </div>
-        <div className="grid grid-cols-2 gap-4 pt-4 border-t border-white/10">
-          <div>
-            <p className="text-indigo-100 text-[10px] uppercase tracking-wider mb-1">总收入</p>
-            <p className="font-bold text-sm">¥{monthlyTotals.income.toLocaleString('zh-CN', { minimumFractionDigits: 2 })}</p>
-          </div>
-          <div className="text-right">
-            <p className="text-indigo-100 text-[10px] uppercase tracking-wider mb-1">结余</p>
-            <p className="font-bold text-sm">¥{monthlyTotals.balance.toLocaleString('zh-CN', { minimumFractionDigits: 2 })}</p>
+          <div className="grid grid-cols-2 gap-4 pt-4 border-t border-white/10">
+            <div>
+              <p className="text-indigo-100 text-[10px] uppercase tracking-wider mb-1">总收入</p>
+              <p className="font-bold">¥{monthlyTotals.income.toLocaleString()}</p>
+            </div>
+            <div className="text-right">
+              <p className="text-indigo-100 text-[10px] uppercase tracking-wider mb-1">结余</p>
+              <p className="font-bold">¥{monthlyTotals.balance.toLocaleString()}</p>
+            </div>
           </div>
         </div>
       </div>
@@ -784,7 +778,6 @@ const TransactionListView: React.FC<{ transactions: Transaction[] }> = ({ transa
 
 const TransactionItem: React.FC<{ transaction: Transaction, showDelete?: boolean }> = ({ transaction, showDelete = false }) => {
   const handleDelete = async () => {
-    // Simplified delete without confirm to avoid iframe issues
     try {
       await deleteDoc(doc(db, 'transactions', transaction.id));
     } catch (error) {
@@ -793,33 +786,33 @@ const TransactionItem: React.FC<{ transaction: Transaction, showDelete?: boolean
   };
 
   return (
-    <div className="flex items-center justify-between p-4 hover:bg-slate-50 transition-colors group">
+    <div className="flex items-center justify-between py-4 hover:bg-slate-50 transition-colors group px-2 -mx-2 rounded-xl">
       <div className="flex items-center gap-4">
         <div className={cn(
-          "w-12 h-12 rounded-2xl flex items-center justify-center text-lg",
-          transaction.type === 'income' ? "bg-emerald-50 text-emerald-600" : "bg-rose-50 text-rose-600"
+          "w-10 h-10 rounded-xl flex items-center justify-center text-lg",
+          transaction.type === 'income' ? "bg-emerald-50 text-emerald-600" : "bg-slate-50 text-slate-600"
         )}>
           {getCategoryEmoji(transaction.category)}
         </div>
         <div>
-          <p className="font-bold text-slate-900">{transaction.description}</p>
-          <p className="text-xs text-slate-500">{transaction.category}</p>
+          <p className="text-sm font-bold text-slate-900">{transaction.description}</p>
+          <p className="text-[10px] text-slate-400 uppercase tracking-wider">{transaction.category}</p>
         </div>
       </div>
       <div className="flex items-center gap-4">
         <div className="text-right">
           <p className={cn(
-            "font-bold",
+            "text-sm font-bold",
             transaction.type === 'income' ? "text-emerald-600" : "text-slate-900"
           )}>
-            {transaction.type === 'income' ? '+' : '-'}¥{transaction.amount.toLocaleString()}
+            {transaction.type === 'income' ? '+' : '-'}{transaction.amount.toLocaleString()}
           </p>
-          <p className="text-[10px] text-slate-400">{format(transaction.date.toDate(), 'HH:mm')}</p>
+          <p className="text-[10px] text-slate-300">{format(transaction.date.toDate(), 'HH:mm')}</p>
         </div>
         {showDelete && (
           <button 
             onClick={handleDelete}
-            className="p-2 text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all"
+            className="p-2 text-slate-200 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all"
           >
             <Trash2 className="w-4 h-4" />
           </button>
@@ -1051,7 +1044,7 @@ function AddTransactionModal({ userId, onClose }: { userId: string, onClose: () 
         initial={{ y: '100%' }}
         animate={{ y: 0 }}
         exit={{ y: '100%' }}
-        className="relative w-full max-w-lg bg-white rounded-t-[32px] sm:rounded-[32px] shadow-2xl overflow-hidden"
+        className="relative bg-white w-full max-w-lg rounded-t-3xl sm:rounded-3xl overflow-hidden shadow-2xl"
       >
         {/* Feedback Message */}
         <AnimatePresence>
@@ -1072,31 +1065,27 @@ function AddTransactionModal({ userId, onClose }: { userId: string, onClose: () 
         </AnimatePresence>
 
         <div className="p-6 border-b border-slate-100 flex items-center justify-between">
-          <h2 className="text-xl font-bold text-slate-900">记一笔</h2>
-          <button onClick={onClose} className="p-2 hover:bg-slate-100 rounded-full transition-colors">
-            <X className="w-6 h-6 text-slate-400" />
+          <h2 className="text-xl font-bold text-slate-900">添加交易</h2>
+          <button onClick={onClose} className="p-2 text-slate-400 hover:text-slate-600">
+            <X className="w-6 h-6" />
           </button>
         </div>
 
         <div className="p-6 space-y-6 max-h-[80vh] overflow-y-auto">
           {/* AI Input Section */}
           <div className="space-y-3">
-            <label className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2">
-              <BrainCircuit className="w-4 h-4 text-indigo-500" />
-              智能识别 (粘贴账单短信或描述)
-            </label>
             <div className="relative">
               <textarea 
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
-                placeholder="例如：中午在麦当劳花了35元"
-                className="w-full p-4 bg-slate-50 border-none rounded-2xl text-sm focus:ring-2 focus:ring-indigo-500 min-h-[100px] resize-none pr-24"
+                placeholder="试试输入：中午在麦当劳花了35元"
+                className="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent min-h-[100px] resize-none pr-20"
               />
               <div className="absolute bottom-3 right-3 flex gap-2">
                 <button
                   type="button"
                   onClick={handlePaste}
-                  className="p-2 bg-white text-slate-400 hover:text-indigo-500 rounded-xl shadow-sm border border-slate-100 transition-all"
+                  className="p-2 bg-white text-slate-500 hover:text-indigo-600 rounded-xl shadow-sm border border-slate-100 transition-colors"
                   title="从剪贴板粘贴"
                 >
                   <Clipboard className="w-4 h-4" />
@@ -1106,104 +1095,125 @@ function AddTransactionModal({ userId, onClose }: { userId: string, onClose: () 
                   onClick={toggleListening}
                   className={cn(
                     "p-2 rounded-xl transition-all",
-                    isListening 
-                      ? "bg-red-500 text-white animate-pulse shadow-lg shadow-red-200" 
-                      : "bg-white text-slate-400 hover:text-indigo-500 shadow-sm border border-slate-100"
+                    isListening ? "bg-red-500 text-white animate-pulse" : "bg-white text-slate-500 hover:text-indigo-600 shadow-sm border border-slate-100"
                   )}
+                  title={isListening ? "停止录音" : "语音输入"}
                 >
                   <Mic className="w-4 h-4" />
                 </button>
-                <button 
-                  type="button"
-                  onClick={() => handleSmartInput()}
-                  disabled={isClassifying || !input.trim()}
-                  className="px-4 py-2 bg-indigo-600 text-white rounded-xl text-xs font-bold shadow-lg shadow-indigo-100 disabled:opacity-50 flex items-center gap-2"
-                >
-                  {isClassifying ? <Loader2 className="w-3 h-3 animate-spin" /> : <BrainCircuit className="w-3 h-3" />}
-                  识别
-                </button>
               </div>
+            </div>
+            <button
+              onClick={() => handleSmartInput()}
+              disabled={isClassifying || !input.trim()}
+              className="w-full py-3 bg-indigo-600 text-white rounded-2xl font-bold flex items-center justify-center gap-2 hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-indigo-100 transition-all"
+            >
+              {isClassifying ? (
+                <Loader2 className="w-5 h-5 animate-spin" />
+              ) : (
+                <BrainCircuit className="w-5 h-5" />
+              )}
+              AI 智能识别
+            </button>
+          </div>
+
+          <div className="relative">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t border-slate-100"></div>
+            </div>
+            <div className="relative flex justify-center text-xs uppercase">
+              <span className="bg-white px-2 text-slate-400">或手动输入</span>
             </div>
           </div>
 
-          <div className="h-px bg-slate-100" />
-
-          {/* Manual Form */}
           <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="flex bg-slate-100 p-1 rounded-2xl">
-              <button 
-                type="button"
-                onClick={() => setFormData({ ...formData, type: 'expense' })}
-                className={cn(
-                  "flex-1 py-2 rounded-xl text-sm font-bold transition-all",
-                  formData.type === 'expense' ? "bg-white text-rose-600 shadow-sm" : "text-slate-500"
-                )}
-              >
-                支出
-              </button>
-              <button 
-                type="button"
-                onClick={() => setFormData({ ...formData, type: 'income' })}
-                className={cn(
-                  "flex-1 py-2 rounded-xl text-sm font-bold transition-all",
-                  formData.type === 'income' ? "bg-white text-emerald-600 shadow-sm" : "text-slate-500"
-                )}
-              >
-                收入
-              </button>
-            </div>
-
             <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <label className="text-xs font-bold text-slate-400 uppercase">金额</label>
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">金额</label>
                 <input 
-                  type="number" 
+                  type="number"
                   step="0.01"
                   required
                   value={formData.amount}
                   onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
-                  className="w-full p-4 bg-slate-50 border-none rounded-2xl text-lg font-bold focus:ring-2 focus:ring-indigo-500"
                   placeholder="0.00"
+                  className="w-full p-3 bg-slate-50 border border-slate-100 rounded-xl text-lg font-bold focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                 />
               </div>
-              <div className="space-y-2">
-                <label className="text-xs font-bold text-slate-400 uppercase">分类</label>
-                <select 
-                  value={formData.category}
-                  onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                  className="w-full p-4 bg-slate-50 border-none rounded-2xl text-sm focus:ring-2 focus:ring-indigo-500 appearance-none"
-                >
-                  {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
-                </select>
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">类型</label>
+                <div className="flex bg-slate-50 p-1 rounded-xl border border-slate-100">
+                  <button
+                    type="button"
+                    onClick={() => setFormData({ ...formData, type: 'expense' })}
+                    className={cn(
+                      "flex-1 py-2 rounded-lg text-xs font-bold transition-all",
+                      formData.type === 'expense' ? "bg-white text-rose-600 shadow-sm" : "text-slate-500"
+                    )}
+                  >
+                    支出
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setFormData({ ...formData, type: 'income' })}
+                    className={cn(
+                      "flex-1 py-2 rounded-lg text-xs font-bold transition-all",
+                      formData.type === 'income' ? "bg-white text-emerald-600 shadow-sm" : "text-slate-500"
+                    )}
+                  >
+                    收入
+                  </button>
+                </div>
               </div>
             </div>
 
-            <div className="space-y-2">
-              <label className="text-xs font-bold text-slate-400 uppercase">描述</label>
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">分类</label>
+              <div className="grid grid-cols-4 gap-2">
+                {CATEGORIES.map(cat => (
+                  <button
+                    key={cat}
+                    type="button"
+                    onClick={() => setFormData({ ...formData, category: cat })}
+                    className={cn(
+                      "py-2 rounded-xl text-[10px] font-bold transition-all border",
+                      formData.category === cat 
+                        ? "bg-indigo-50 border-indigo-200 text-indigo-600" 
+                        : "bg-white border-slate-100 text-slate-500 hover:border-slate-200"
+                    )}
+                  >
+                    {cat}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">描述</label>
               <input 
-                type="text" 
+                type="text"
                 required
                 value={formData.description}
                 onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                className="w-full p-4 bg-slate-50 border-none rounded-2xl text-sm focus:ring-2 focus:ring-indigo-500"
-                placeholder="备注一下..."
+                placeholder="去哪儿了？做了什么？"
+                className="w-full p-3 bg-slate-50 border border-slate-100 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
               />
             </div>
 
-            <div className="space-y-2">
-              <label className="text-xs font-bold text-slate-400 uppercase">日期</label>
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">日期</label>
               <input 
-                type="date" 
+                type="date"
                 required
                 value={formData.date}
                 onChange={(e) => setFormData({ ...formData, date: e.target.value })}
-                className="w-full p-4 bg-slate-50 border-none rounded-2xl text-sm focus:ring-2 focus:ring-indigo-500"
+                className="w-full p-3 bg-slate-50 border border-slate-100 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
               />
             </div>
 
-            <button 
+            <button
               type="submit"
-              className="w-full py-4 bg-indigo-600 text-white rounded-2xl font-bold text-lg shadow-xl shadow-indigo-100 hover:bg-indigo-700 transition-all mt-4"
+              className="w-full py-4 bg-slate-900 text-white rounded-2xl font-bold hover:bg-slate-800 transition-colors shadow-lg mt-4"
             >
               保存记录
             </button>
@@ -1220,57 +1230,51 @@ function AddTransactionModal({ userId, onClose }: { userId: string, onClose: () 
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={() => setShowSecretModal(false)}
-              className="absolute inset-0 bg-slate-900/60 backdrop-blur-md"
+              className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm"
             />
             <motion.div 
               initial={{ scale: 0.9, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.9, opacity: 0 }}
-              className="relative w-full max-w-sm bg-white rounded-[32px] p-8 shadow-2xl text-center"
+              className="relative bg-white w-full max-w-sm rounded-3xl p-8 shadow-2xl"
             >
-              <div className="w-16 h-16 bg-indigo-100 rounded-2xl flex items-center justify-center mx-auto mb-6">
-                <Lock className="w-8 h-8 text-indigo-600" />
+              <div className="flex items-center gap-4 mb-6">
+                <div className="w-12 h-12 bg-indigo-100 rounded-2xl flex items-center justify-center">
+                  <Lock className="w-6 h-6 text-indigo-600" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-slate-900">AI 密钥设置</h3>
+                  <p className="text-xs text-slate-500">请输入您的 Gemini API Key</p>
+                </div>
               </div>
-              <h3 className="text-xl font-bold text-slate-900 mb-2">输入 AI 暗号</h3>
-              <p className="text-sm text-slate-500 mb-6">为了保护您的 API 额度，请输入暗号以继续</p>
-              
+
               <input 
                 type="password"
                 value={tempSecret}
                 onChange={(e) => setTempSecret(e.target.value)}
-                placeholder="在此输入暗号..."
-                className="w-full p-4 bg-slate-50 border-2 border-slate-100 rounded-2xl text-center text-lg font-mono focus:border-indigo-500 focus:ring-0 transition-all mb-6"
-                autoFocus
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && tempSecret) {
-                    setAiSecret(tempSecret);
-                    localStorage.setItem('ai_secret', tempSecret);
-                    setShowSecretModal(false);
-                    // Pass the secret directly to avoid state race
-                    setTimeout(() => handleSmartInput(undefined, tempSecret), 100);
-                  }
-                }}
+                placeholder="API Key..."
+                className="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl text-sm focus:ring-2 focus:ring-indigo-500 mb-6"
               />
-              
+
               <div className="flex gap-3">
                 <button 
                   onClick={() => setShowSecretModal(false)}
-                  className="flex-1 py-3 text-slate-400 font-bold hover:text-slate-600 transition-colors"
+                  className="flex-1 py-3 bg-slate-100 text-slate-600 rounded-xl font-bold hover:bg-slate-200 transition-colors"
                 >
                   取消
                 </button>
                 <button 
                   onClick={() => {
-                    if (tempSecret) {
-                      setAiSecret(tempSecret);
+                    if (tempSecret.trim()) {
                       localStorage.setItem('ai_secret', tempSecret);
+                      setAiSecret(tempSecret);
                       setShowSecretModal(false);
-                      setTimeout(() => handleSmartInput(undefined, tempSecret), 100);
+                      setTempSecret('');
                     }
                   }}
-                  className="flex-1 py-3 bg-indigo-600 text-white rounded-xl font-bold shadow-lg shadow-indigo-100"
+                  className="flex-1 py-3 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 transition-colors shadow-lg shadow-indigo-100"
                 >
-                  确认
+                  保存
                 </button>
               </div>
             </motion.div>
