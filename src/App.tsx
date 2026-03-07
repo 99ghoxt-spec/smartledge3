@@ -4,6 +4,8 @@ import {
   db, 
   googleProvider, 
   signInWithPopup, 
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
   signOut, 
   onAuthStateChanged, 
   collection, 
@@ -43,7 +45,10 @@ import {
   Clipboard,
   Wifi,
   WifiOff,
-  Sparkles
+  Sparkles,
+  XCircle,
+  CheckCircle2,
+  Info
 } from 'lucide-react';
 import { 
   BarChart, 
@@ -123,6 +128,22 @@ export default function App() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [activeTab, setActiveTab] = useState<'dashboard' | 'list'>('dashboard');
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  
+  // Email Login States
+  const [loginMode, setLoginMode] = useState<'google' | 'email' | 'register'>('google');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [authError, setAuthError] = useState<string | null>(null);
+  const [feedback, setFeedback] = useState<{ type: 'success' | 'error' | 'info', text: string } | null>(null);
+
+  useEffect(() => {
+    if (feedback) {
+      const timer = setTimeout(() => {
+        setFeedback(null);
+      }, 4000);
+      return () => clearTimeout(timer);
+    }
+  }, [feedback]);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (u) => {
@@ -150,6 +171,22 @@ export default function App() {
         ...doc.data()
       })) as Transaction[];
       setTransactions(txs);
+
+      // 如果是新用户（没有交易记录），添加一条欢迎信息
+      if (snapshot.empty && user) {
+        const welcomeTx = {
+          userId: user.uid,
+          amount: 0,
+          type: 'income',
+          category: '其他',
+          description: '欢迎使用智能记账！点击下方 + 号开始记录您的第一笔开支。',
+          date: Timestamp.now(),
+          createdAt: Timestamp.now()
+        };
+        addDoc(collection(db, 'transactions'), welcomeTx).catch(err => {
+          console.error("Failed to add welcome transaction:", err);
+        });
+      }
     }, (error) => {
       handleFirestoreError(error, OperationType.LIST, 'transactions');
     });
@@ -158,10 +195,63 @@ export default function App() {
   }, [user]);
 
   const handleLogin = async () => {
+    setAuthError(null);
     try {
       await signInWithPopup(auth, googleProvider);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Login failed:", error);
+      setAuthError("Google 登录失败，请检查网络或尝试邮箱登录。");
+    }
+  };
+
+  const handleEmailLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setAuthError(null);
+    if (!email || !password) return;
+    
+    try {
+      if (loginMode === 'register') {
+        await createUserWithEmailAndPassword(auth, email, password);
+        setFeedback({ type: 'success', text: '注册成功！已为您开启记账之旅。' });
+      } else {
+        try {
+          // 尝试登录
+          await signInWithEmailAndPassword(auth, email, password);
+        } catch (loginErr: any) {
+          // Firebase v9+ 经常返回 'auth/invalid-credential' 涵盖用户不存在和密码错误
+          if (loginErr.code === 'auth/user-not-found' || loginErr.code === 'auth/invalid-credential') {
+            try {
+              // 尝试为新用户注册
+              await createUserWithEmailAndPassword(auth, email, password);
+              setFeedback({ type: 'success', text: '欢迎新用户！已自动为您创建账号。' });
+            } catch (regErr: any) {
+              // 如果注册失败且提示邮箱已存在，说明之前的登录失败确实是“密码错误”
+              if (regErr.code === 'auth/email-already-in-use') {
+                setAuthError("登录失败：密码错误。");
+              } else {
+                throw regErr;
+              }
+            }
+          } else {
+            throw loginErr;
+          }
+        }
+      }
+    } catch (error: any) {
+      console.error("Auth failed:", error);
+      if (error.code === 'auth/operation-not-allowed') {
+        setAuthError("服务器未开启邮箱登录功能。请确保在 Firebase 控制台的 Authentication -> Sign-in method 中启用了 'Email/Password'。");
+      } else if (error.code === 'auth/invalid-email') {
+        setAuthError("邮箱格式不正确，请输入有效的邮箱地址。");
+      } else if (error.code === 'auth/weak-password') {
+        setAuthError("密码太弱，请至少使用 6 位字符。");
+      } else if (error.code === 'auth/network-request-failed') {
+        setAuthError("网络请求失败，请检查您的网络连接或 VPN 状态。");
+      } else if (error.code === 'auth/too-many-requests') {
+        setAuthError("尝试次数过多，账号已暂时锁定，请稍后再试。");
+      } else {
+        setAuthError(`操作失败: ${error.message || '未知错误'}`);
+      }
     }
   };
 
@@ -214,20 +304,85 @@ export default function App() {
         <motion.div 
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="w-full max-w-md bg-white p-8 rounded-3xl shadow-2xl border border-slate-100 text-center"
+          className="w-full max-w-md bg-white p-8 rounded-3xl shadow-2xl border border-slate-100"
         >
           <div className="w-20 h-20 bg-indigo-600 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-lg shadow-indigo-200">
             <Wallet className="w-10 h-10 text-white" />
           </div>
-          <h1 className="text-3xl font-bold text-slate-900 mb-2">SmartLedger</h1>
-          <p className="text-slate-500 mb-8">智能记账，理清每一分钱的去向</p>
-          <button 
-            onClick={handleLogin}
-            className="w-full py-4 bg-indigo-600 text-white rounded-2xl font-semibold hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-100 flex items-center justify-center gap-3"
-          >
-            <img src="https://www.google.com/favicon.ico" className="w-5 h-5" alt="Google" />
-            使用 Google 账号登录
-          </button>
+          <h1 className="text-3xl font-bold text-slate-900 mb-2 text-center">SmartLedger</h1>
+          <p className="text-slate-500 mb-8 text-center">智能记账，理清每一分钱的去向</p>
+          
+          {authError && (
+            <div className="mb-6 p-4 bg-red-50 text-red-600 text-sm rounded-2xl border border-red-100 flex items-center gap-2">
+              <X className="w-4 h-4" />
+              {authError}
+            </div>
+          )}
+
+          {loginMode === 'google' ? (
+            <div className="space-y-4">
+              <button 
+                onClick={handleLogin}
+                className="w-full py-4 bg-indigo-600 text-white rounded-2xl font-semibold hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-100 flex items-center justify-center gap-3"
+              >
+                <img src="https://www.google.com/favicon.ico" className="w-5 h-5" alt="Google" />
+                使用 Google 账号登录
+              </button>
+              <button 
+                onClick={() => setLoginMode('email')}
+                className="w-full py-4 bg-white text-slate-600 border border-slate-200 rounded-2xl font-semibold hover:bg-slate-50 transition-all flex items-center justify-center gap-3"
+              >
+                使用邮箱登录
+              </button>
+            </div>
+          ) : (
+            <form onSubmit={handleEmailLogin} className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2 ml-1">邮箱地址</label>
+                <input 
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="your@email.com"
+                  className="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl text-sm focus:ring-2 focus:ring-indigo-500"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2 ml-1">登录密码</label>
+                <input 
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="••••••••"
+                  className="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl text-sm focus:ring-2 focus:ring-indigo-500"
+                  required
+                />
+              </div>
+              <button 
+                type="submit"
+                className="w-full py-4 bg-indigo-600 text-white rounded-2xl font-semibold hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-100"
+              >
+                {loginMode === 'register' ? '立即注册' : '登录账号'}
+              </button>
+              <div className="flex items-center justify-between px-1">
+                <button 
+                  type="button"
+                  onClick={() => setLoginMode(loginMode === 'email' ? 'register' : 'email')}
+                  className="text-xs font-bold text-indigo-600 hover:underline"
+                >
+                  {loginMode === 'email' ? '没有账号？去注册' : '已有账号？去登录'}
+                </button>
+                <button 
+                  type="button"
+                  onClick={() => setLoginMode('google')}
+                  className="text-xs font-bold text-slate-400 hover:text-slate-600"
+                >
+                  返回 Google 登录
+                </button>
+              </div>
+            </form>
+          )}
         </motion.div>
       </div>
     );
@@ -320,6 +475,29 @@ export default function App() {
           </div>
         </nav>
 
+        {/* Feedback Toast */}
+        <AnimatePresence>
+          {feedback && (
+            <motion.div
+              initial={{ opacity: 0, y: 50 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 50 }}
+              className="fixed bottom-28 left-1/2 -translate-x-1/2 z-50 px-6 py-3 rounded-2xl shadow-xl flex items-center gap-3 min-w-[280px]"
+              style={{
+                backgroundColor: feedback.type === 'error' ? '#FEF2F2' : feedback.type === 'success' ? '#ECFDF5' : '#F0F9FF',
+                color: feedback.type === 'error' ? '#991B1B' : feedback.type === 'success' ? '#065F46' : '#075985',
+                border: `1px solid ${feedback.type === 'error' ? '#FEE2E2' : feedback.type === 'success' ? '#D1FAE5' : '#E0F2FE'}`
+              }}
+            >
+              {feedback.type === 'error' ? <XCircle className="w-5 h-5" /> : feedback.type === 'success' ? <CheckCircle2 className="w-5 h-5" /> : <Info className="w-5 h-5" />}
+              <span className="text-sm font-medium">{feedback.text}</span>
+              <button onClick={() => setFeedback(null)} className="ml-auto opacity-50 hover:opacity-100">
+                <X className="w-4 h-4" />
+              </button>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
         {/* Add Modal */}
         <AnimatePresence>
           {isAddModalOpen && (
@@ -340,7 +518,10 @@ const Dashboard: React.FC<{ transactions: Transaction[] }> = ({ transactions }) 
   const currentMonth = new Date();
   
   const stats = useMemo(() => {
-    const monthTxs = transactions.filter(t => isSameMonth(t.date.toDate(), currentMonth));
+    const monthTxs = transactions.filter(t => {
+    const d = t.date instanceof Timestamp ? t.date.toDate() : new Date(t.date);
+    return isSameMonth(d, currentMonth);
+  });
     const income = monthTxs.filter(t => t.type === 'income').reduce((sum, t) => sum + t.amount, 0);
     const expense = monthTxs.filter(t => t.type === 'expense').reduce((sum, t) => sum + t.amount, 0);
     
@@ -362,7 +543,10 @@ const Dashboard: React.FC<{ transactions: Transaction[] }> = ({ transactions }) 
       const monthLabel = format(d, 'M月');
       
       const mExpense = transactions
-        .filter(t => t.type === 'expense' && format(t.date.toDate(), 'yyyy-MM') === monthStr)
+        .filter(t => {
+          const d = t.date instanceof Timestamp ? t.date.toDate() : new Date(t.date);
+          return t.type === 'expense' && format(d, 'yyyy-MM') === monthStr;
+        })
         .reduce((sum, t) => sum + t.amount, 0);
       
       historyData.push({ name: monthLabel, value: mExpense });
@@ -517,7 +701,10 @@ const TransactionListView: React.FC<{ transactions: Transaction[] }> = ({ transa
   const [selectedMonth, setSelectedMonth] = useState(new Date());
 
   const filteredTransactions = useMemo(() => {
-    return transactions.filter(t => isSameMonth(t.date.toDate(), selectedMonth));
+    return transactions.filter(t => {
+      const d = t.date instanceof Timestamp ? t.date.toDate() : new Date(t.date);
+      return isSameMonth(d, selectedMonth);
+    });
   }, [transactions, selectedMonth]);
 
   const groupedByCategory = useMemo(() => {
@@ -540,7 +727,8 @@ const TransactionListView: React.FC<{ transactions: Transaction[] }> = ({ transa
   const groupedByDate = useMemo(() => {
     const groups: { [key: string]: { txs: Transaction[], income: number, expense: number } } = {};
     filteredTransactions.forEach(tx => {
-      const dateKey = format(tx.date.toDate(), 'yyyy-MM-dd');
+      const d = tx.date instanceof Timestamp ? tx.date.toDate() : new Date(tx.date);
+      const dateKey = format(d, 'yyyy-MM-dd');
       if (!groups[dateKey]) {
         groups[dateKey] = { txs: [], income: 0, expense: 0 };
       }
@@ -807,7 +995,9 @@ const TransactionItem: React.FC<{ transaction: Transaction, showDelete?: boolean
           )}>
             {transaction.type === 'income' ? '+' : '-'}{transaction.amount.toLocaleString()}
           </p>
-          <p className="text-[10px] text-slate-300">{format(transaction.date.toDate(), 'HH:mm')}</p>
+          <p className="text-[10px] text-slate-300">
+            {format(transaction.date instanceof Timestamp ? transaction.date.toDate() : new Date(transaction.date), 'HH:mm')}
+          </p>
         </div>
         {showDelete && (
           <button 
@@ -828,7 +1018,7 @@ function AddTransactionModal({ userId, onClose }: { userId: string, onClose: () 
   const [input, setInput] = useState('');
   const [isClassifying, setIsClassifying] = useState(false);
   const [isListening, setIsListening] = useState(false);
-  const [aiSecret, setAiSecret] = useState(localStorage.getItem('ai_secret') || '');
+  const [aiSecret, setAiSecret] = useState(localStorage.getItem('ai_secret') || 'cxmyydsjjz');
   const [showSecretModal, setShowSecretModal] = useState(false);
   const [tempSecret, setTempSecret] = useState('');
   const [feedback, setFeedback] = useState<{ type: 'error' | 'success' | 'info', text: string } | null>(null);
@@ -852,14 +1042,9 @@ function AddTransactionModal({ userId, onClose }: { userId: string, onClose: () 
     setFeedback(null);
     console.log("Setting isClassifying to true");
     try {
-      let currentSecret = secretOverride || aiSecret;
+      // Use provided secret, or stored secret, or default secret
+      let currentSecret = secretOverride || aiSecret || 'cxmyydsjjz';
       console.log("Using secret:", !!currentSecret);
-      if (!currentSecret) {
-        console.log("No secret found, showing custom modal...");
-        setShowSecretModal(true);
-        setIsClassifying(false);
-        return;
-      }
 
       console.log("Initiating classification request to backend...");
       const result = await classifyTransaction(textToProcess, currentSecret);
@@ -954,7 +1139,14 @@ function AddTransactionModal({ userId, onClose }: { userId: string, onClose: () 
     };
 
     recognition.onerror = (event: any) => {
-      console.error('Speech recognition error:', event.error);
+      console.warn('Speech recognition error:', event.error);
+      if (event.error === 'no-speech') {
+        setFeedback({ type: 'info', text: '未检测到语音，请大声一点。' });
+      } else if (event.error === 'not-allowed') {
+        setFeedback({ type: 'error', text: '麦克风权限被拒绝，请在浏览器设置中开启。' });
+      } else {
+        setFeedback({ type: 'error', text: `语音识别出错: ${event.error}` });
+      }
       setIsListening(false);
     };
 

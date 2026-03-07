@@ -50,67 +50,66 @@ async function startServer() {
       return res.status(403).json({ error: "INVALID_SECRET" });
     }
 
-    if (keys.length === 0) {
-      console.error("No API keys available");
-      return res.status(500).json({ 
-        error: "API_KEY_MISSING", 
-        message: "服务器未检测到任何有效的 API Key。" 
-      });
-    }
-
     let lastError: any = null;
-    for (const key of keys) {
-      // 过滤掉明显的占位符
-      if (key.includes("your_api_key_here") || key.includes("TODO")) continue;
+    if (keys.length > 0) {
+      for (const key of keys) {
+        // 过滤掉明显的占位符
+        if (key.includes("your_api_key_here") || key.includes("TODO") || key.startsWith("MY_GEMIN")) {
+          console.log(`Skipping placeholder key starting with ${key.substring(0, 8)}...`);
+          continue;
+        }
 
-      try {
-        console.log(`Trying Gemini AI with key starting with ${key.substring(0, 8)}...`);
-        const ai = new GoogleGenAI({ apiKey: key });
-        const response = await ai.models.generateContent({
-          model: "gemini-1.5-flash-latest", // 使用最新的 1.5 Flash 稳定版
-          contents: [{ parts: [{ text: `你是一个专业的记账助手。请解析以下支付或收入信息，提取金额、类型（收入或支出）、分类和简短描述。
-          
-          注意：在“描述”字段中，请优先提取消费的对象主体（例如：麦当劳、食堂、希尔顿酒店、滴滴打车、发工资等），而不是重复整个句子。
-          
-          可选分类包括: ${CATEGORIES.join(", ")}。
-          
-          输入信息: "${input}"
-          
-          请严格按照 JSON 格式返回，包含 amount (数字), type (income 或 expense), category (字符串), description (字符串) 字段。` }] }],
-          config: {
-            responseMimeType: "application/json",
-            responseSchema: {
-              type: Type.OBJECT,
-              properties: {
-                amount: { type: Type.NUMBER, description: "金额" },
-                type: { type: Type.STRING, enum: ["income", "expense"], description: "类型: income 或 expense" },
-                category: { type: Type.STRING, description: "分类" },
-                description: { type: Type.STRING, description: "消费对象主体或简短描述" }
-              },
-              required: ["amount", "type", "category", "description"]
+        try {
+          console.log(`Trying Gemini AI with key starting with ${key.substring(0, 8)}...`);
+          const ai = new GoogleGenAI({ apiKey: key });
+          const response = await ai.models.generateContent({
+            model: "gemini-flash-latest", 
+            contents: [{ parts: [{ text: `你是一个专业的记账助手。请解析以下支付或收入信息，提取金额、类型（收入或支出）、分类和简短描述。
+            
+            注意：在“描述”字段中，请优先提取消费的对象主体（例如：麦当劳、食堂、希尔顿酒店、滴滴打车、发工资等），而不是重复整个句子。
+            
+            可选分类包括: ${CATEGORIES.join(", ")}。
+            
+            输入信息: "${input}"
+            
+            请严格按照 JSON 格式返回，包含 amount (数字), type (income 或 expense), category (字符串), description (字符串) 字段。` }] }],
+            config: {
+              responseMimeType: "application/json",
+              responseSchema: {
+                type: Type.OBJECT,
+                properties: {
+                  amount: { type: Type.NUMBER, description: "金额" },
+                  type: { type: Type.STRING, enum: ["income", "expense"], description: "类型: income 或 expense" },
+                  category: { type: Type.STRING, description: "分类" },
+                  description: { type: Type.STRING, description: "消费对象主体或简短描述" }
+                },
+                required: ["amount", "type", "category", "description"]
+              }
             }
-          }
-        });
+          });
 
-        const result = JSON.parse(response.text || "{}");
-        console.log("Classification successful via AI");
-        return res.json(result);
-      } catch (error: any) {
-        console.warn(`Key starting with ${key.substring(0, 8)} failed:`, error.message);
-        lastError = error;
-        // 如果是 429 (额度)、400 (无效Key) 或 500 (服务器忙)，继续尝试下一个 Key
-        const shouldRetry = error.message?.includes("quota") || error.message?.includes("429") || error.status === 429 ||
-                            error.message?.includes("API key not valid") || error.status === 400 ||
-                            error.status >= 500;
-        if (!shouldRetry) break;
-        
-        // 增加 1-2 秒随机延迟，避开瞬时频率限制
-        const jitter = Math.floor(Math.random() * 1000);
-        await new Promise(resolve => setTimeout(resolve, 1000 + jitter));
+          const result = JSON.parse(response.text || "{}");
+          console.log("Classification successful via AI");
+          return res.json(result);
+        } catch (error: any) {
+          console.warn(`Key starting with ${key.substring(0, 8)} failed:`, error.message);
+          lastError = error;
+          // 如果是 429 (额度)、400 (无效Key) 或 500 (服务器忙)，继续尝试下一个 Key
+          const shouldRetry = error.message?.includes("quota") || error.message?.includes("429") || error.status === 429 ||
+                              error.message?.includes("API key not valid") || error.status === 400 ||
+                              error.status >= 500;
+          if (!shouldRetry) break;
+          
+          // 增加 1-2 秒随机延迟，避开瞬时频率限制
+          const jitter = Math.floor(Math.random() * 1000);
+          await new Promise(resolve => setTimeout(resolve, 1000 + jitter));
+        }
       }
+    } else {
+      console.log("No API keys provided, skipping AI and using local fallback.");
     }
 
-    // --- 本地兜底逻辑 (当所有 AI Key 都失败时触发) ---
+    // --- 本地兜底逻辑 (当所有 AI Key 都失败或没有 Key 时触发) ---
     console.warn("All Gemini keys failed or quota exceeded. Using local fallback parser.");
     
     // 简单的正则提取金额

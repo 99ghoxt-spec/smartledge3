@@ -1,5 +1,14 @@
 import { initializeApp } from 'firebase/app';
-import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged, User as FirebaseUser } from 'firebase/auth';
+import { 
+  getAuth, 
+  GoogleAuthProvider, 
+  signInWithPopup, 
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  signOut, 
+  onAuthStateChanged, 
+  User as FirebaseUser 
+} from 'firebase/auth';
 import { 
   getFirestore, 
   collection, 
@@ -107,5 +116,23 @@ async function testConnection() {
 }
 testConnection();
 
-export { signInWithPopup, signOut, onAuthStateChanged, collection, doc, getDoc, setDoc, addDoc, updateDoc, deleteDoc, query, where, orderBy, onSnapshot, Timestamp };
+export { 
+  signInWithPopup, 
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  signOut, 
+  onAuthStateChanged, 
+  collection, 
+  doc, 
+  getDoc, 
+  setDoc, 
+  addDoc, 
+  updateDoc, 
+  deleteDoc, 
+  query, 
+  where, 
+  orderBy, 
+  onSnapshot, 
+  Timestamp 
+};
 export type { FirebaseUser };

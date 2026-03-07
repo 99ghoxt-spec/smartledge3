@@ -63,7 +63,7 @@ service cloud.firestore {
     function isValidTransaction(data) {
       return hasOnlyAllowedFields(['userId', 'amount', 'type', 'category', 'date', 'description', 'createdAt']) &&
              data.userId == request.auth.uid &&
-             data.amount is number && data.amount > 0 &&
+             data.amount is number && data.amount >= 0 &&
              data.type in ['income', 'expense'] &&
              data.category is string && data.category.size() > 0 && data.category.size() < 50 &&
              data.date is timestamp &&
