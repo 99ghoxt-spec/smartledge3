@@ -29,8 +29,13 @@ import {
 import firebaseConfig from '../firebase-applet-config.json';
 
 // Initialize Firebase SDK
-const app = initializeApp(firebaseConfig);
-export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId);
+const config = { 
+  ...firebaseConfig,
+  authDomain: firebaseConfig.authDomain.replace('.firebaseapp.cn', '.firebaseapp.com')
+};
+
+const app = initializeApp(config);
+export const db = getFirestore(app, config.firestoreDatabaseId);
 
 // Enable Offline Persistence
 enableMultiTabIndexedDbPersistence(db).catch((err) => {

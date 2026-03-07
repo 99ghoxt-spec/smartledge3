@@ -39,6 +39,7 @@ import {
   Wallet,
   Calendar,
   X,
+  AlertCircle,
   Loader2,
   Mic,
   Lock,
@@ -313,9 +314,14 @@ export default function App() {
           <p className="text-slate-500 mb-8 text-center">智能记账，理清每一分钱的去向</p>
           
           {authError && (
-            <div className="mb-6 p-4 bg-red-50 text-red-600 text-sm rounded-2xl border border-red-100 flex items-center gap-2">
-              <X className="w-4 h-4" />
-              {authError}
+            <div className="mb-6 p-4 bg-red-50 text-red-600 text-sm rounded-2xl border border-red-100 flex items-start gap-3">
+              <AlertCircle className="w-5 h-5 shrink-0 mt-0.5" />
+              <div>
+                <p className="font-bold mb-1">{authError}</p>
+                <p className="opacity-80 leading-relaxed">
+                  提示：如果您在弹出窗口看到“无法访问此页面”或域名包含 .cn，通常是由于网络环境限制。建议您直接使用下方的“邮箱登录”，无需验证即可快速使用。
+                </p>
+              </div>
             </div>
           )}
 
