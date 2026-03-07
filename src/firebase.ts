@@ -29,14 +29,8 @@ import {
 import firebaseConfig from '../firebase-applet-config.json';
 
 // Initialize Firebase SDK
-const config = { ...firebaseConfig };
-// Use .cn domain for Auth to improve accessibility in China
-if (config.authDomain && config.authDomain.endsWith('.firebaseapp.com')) {
-  config.authDomain = config.authDomain.replace('.firebaseapp.com', '.firebaseapp.cn');
-}
-
-const app = initializeApp(config);
-export const db = getFirestore(app, config.firestoreDatabaseId);
+const app = initializeApp(firebaseConfig);
+export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId);
 
 // Enable Offline Persistence
 enableMultiTabIndexedDbPersistence(db).catch((err) => {
