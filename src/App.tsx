@@ -22,7 +22,7 @@ import {
   handleFirestoreError
 } from './firebase';
 import { Transaction, CATEGORIES } from './types';
-import { classifyTransaction, checkServerHealth } from './services/geminiService';
+import { classifyTransaction } from './services/geminiService';
 import { cn } from './utils';
 import { 
   Plus, 
@@ -1046,43 +1046,27 @@ function AddTransactionModal({ userId, onClose }: { userId: string, onClose: () 
     
     setIsClassifying(true);
     setFeedback(null);
-    console.log("Setting isClassifying to true");
     try {
-      // Use provided secret, or stored secret, or default secret
       let currentSecret = secretOverride || aiSecret || 'cxmyydsjjz';
-      console.log("Using secret:", !!currentSecret);
-
-      console.log("Initiating classification request to backend...");
       const result = await classifyTransaction(textToProcess, currentSecret);
-      console.log("Classification result received:", result);
       
       if (result) {
-        console.log("Updating form data with result...");
-        setFormData(prev => {
-          const newData = {
-            ...prev,
-            amount: result.amount.toString(),
-            type: result.type,
-            category: CATEGORIES.includes(result.category) ? result.category : '其他',
-            description: result.description
-          };
-          console.log("New form data will be:", newData);
-          return newData;
-        });
+        setFormData(prev => ({
+          ...prev,
+          amount: result.amount.toString(),
+          type: result.type,
+          category: CATEGORIES.includes(result.category) ? result.category : '其他',
+          description: result.description
+        }));
+        
         if (!textOverride) setInput('');
+        
         if (result._isFallback) {
-          if (result._isSmartFallback) {
-            setFeedback({ type: 'success', text: '识别成功！（已启用本地智能加速）' });
-          } else {
-            setFeedback({ type: 'info', text: 'AI 额度已满，已为您切换至“本地基础识别”。' });
-          }
+          setFeedback({ type: 'info', text: 'AI 识别受限，已为您进行基础解析。' });
         } else {
-          setFeedback({ type: 'success', text: '识别成功！已为您填入表单。' });
+          setFeedback({ type: 'success', text: 'AI 智能解析成功！已自动填入。' });
         }
         setTimeout(() => setFeedback(null), 3000);
-      } else {
-        console.warn("Result was null or undefined");
-        setFeedback({ type: 'error', text: '未能识别有效信息，请尝试手动输入。' });
       }
     } catch (error: any) {
       console.error("Classification error:", error);
@@ -1090,26 +1074,8 @@ function AddTransactionModal({ userId, onClose }: { userId: string, onClose: () 
         setFeedback({ type: 'error', text: '暗号错误！请重新输入。' });
         localStorage.removeItem('ai_secret');
         setAiSecret('');
-      } else if (error.message === 'API_KEY_MISSING') {
-        setFeedback({ type: 'error', text: '识别失败：服务器未配置 API Key。' });
-      } else if (error.message === 'TIMEOUT') {
-        setFeedback({ type: 'error', text: '识别超时：服务器响应太慢，请稍后再试。' });
-      } else if (error.message.includes('quota') || error.message.includes('429')) {
-        setFeedback({ type: 'error', text: 'AI 正在休息（额度达到上限），请等一分钟后再试。' });
-      } else if (error.message.includes('API key not valid')) {
-        setFeedback({ type: 'error', text: '识别失败：API Key 无效。请检查 Secrets 面板中的 GEMINI_API_KEY 是否正确。' });
-      } else if (error.message.startsWith('HTTP_')) {
-        setFeedback({ type: 'error', text: `识别失败：服务器返回错误 ${error.message}。` });
       } else {
-        // Check health as a fallback
-        const health = await checkServerHealth();
-        if (health.status === 'offline') {
-          setFeedback({ type: 'error', text: '识别失败：后端服务似乎已离线。' });
-        } else if (!health.hasApiKey) {
-          setFeedback({ type: 'error', text: '识别失败：服务器未检测到 API Key。' });
-        } else {
-          setFeedback({ type: 'error', text: `识别失败：${error.message || '未知网络错误'}` });
-        }
+        setFeedback({ type: 'error', text: `识别失败：${error.message || '未知错误'}` });
       }
     } finally {
       setIsClassifying(false);
