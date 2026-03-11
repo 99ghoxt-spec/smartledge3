@@ -1038,12 +1038,9 @@ function AddTransactionModal({ userId, onClose }: { userId: string, onClose: () 
 
   const handleSmartInput = async (textOverride?: string, secretOverride?: string) => {
     const textToProcess = textOverride || input;
-    console.log("Smart Input Triggered:", { textToProcess, isClassifying });
-    if (!textToProcess || (typeof textToProcess === 'string' && !textToProcess.trim())) {
-      console.log("Empty input, skipping");
-      return;
-    }
+    if (!textToProcess || (typeof textToProcess === 'string' && !textToProcess.trim())) return;
     
+    console.log("--- AI Recognition Start (v2.0) ---");
     setIsClassifying(true);
     setFeedback(null);
     try {
