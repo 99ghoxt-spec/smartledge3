@@ -30,7 +30,13 @@ export async function classifyTransaction(input: string, secret: string): Promis
     isUserProvidingKey ? secret : null,
     process.env.GEMINI_API_KEY,
     (import.meta as any).env?.VITE_GEMINI_API_KEY,
+    (window as any)._env_?.VITE_GEMINI_API_KEY, // 额外的兼容性备份
   ].filter(Boolean).map(k => k?.trim()) as string[];
+
+  console.log("Detected AI Keys count:", keys.length);
+  if (keys.length === 0) {
+    console.error("No API Key detected! Please check Cloudflare Environment Variables.");
+  }
 
   if (!input) return null;
 
