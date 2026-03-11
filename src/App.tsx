@@ -1071,6 +1071,8 @@ function AddTransactionModal({ userId, onClose }: { userId: string, onClose: () 
         setFeedback({ type: 'error', text: '暗号错误！请重新输入。' });
         localStorage.removeItem('ai_secret');
         setAiSecret('');
+      } else if (error.message === 'NETWORK_ERROR') {
+        setFeedback({ type: 'error', text: '网络连接失败：无法访问 AI 服务器。请检查您的网络环境（建议开启 VPN）。' });
       } else {
         setFeedback({ type: 'error', text: `识别失败：${error.message || '未知错误'}` });
       }

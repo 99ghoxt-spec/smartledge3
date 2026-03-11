@@ -48,7 +48,7 @@ export async function classifyTransaction(input: string, secret: string): Promis
       try {
         const ai = new GoogleGenAI({ apiKey: key });
         const response = await ai.models.generateContent({
-          model: "gemini-flash-latest",
+          model: "gemini-3-flash-preview",
           contents: [{ parts: [{ text: `你是一个专业的记账助手。请解析以下支付或收入信息，提取金额、分类和简短描述。
           
           注意：
@@ -84,6 +84,10 @@ export async function classifyTransaction(input: string, secret: string): Promis
           } as ClassifiedTransaction;
         }
       } catch (error: any) {
+        console.error("Gemini API Error Details:", error);
+        if (error.message?.includes('Failed to fetch') || error.message?.includes('Load failed')) {
+          throw new Error('NETWORK_ERROR');
+        }
         console.warn("Gemini attempt failed:", error.message);
       }
     }
