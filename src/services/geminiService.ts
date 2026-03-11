@@ -29,6 +29,7 @@ export async function classifyTransaction(input: string, secret: string): Promis
   const keys = [
     isUserProvidingKey ? secret : null,
     process.env.GEMINI_API_KEY,
+    (import.meta as any).env?.VITE_GEMINI_API_KEY,
   ].filter(Boolean).map(k => k?.trim()) as string[];
 
   if (!input) return null;
